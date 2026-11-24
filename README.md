@@ -38,7 +38,25 @@ The deployment follows this workflow:
 7. EC2 pulls the image from ECR and starts the application using Docker Compose.
 8. Nginx forwards incoming HTTP requests to the Flask application.
 9. GitHub Actions verifies the application using the `/health` endpoint.
-![Alt text]\(mermaid-diagram.png)
+### Deployment Architecture
+
+```mermaid
+flowchart TD
+    A[Developer] --> B[GitHub Repository]
+    B --> C[GitHub Actions CI/CD]
+    C --> D[Python Unit Tests]
+    D --> E[Docker Build]
+    E --> F[Private AWS ECR]
+    F --> G[AWS EC2 Deployment via SSM]
+    G --> H[Docker Compose]
+    H --> I[Flask Application - Port 3000]
+    J[Internet User] --> K[Nginx Reverse Proxy - Port 80]
+    K --> I
+    I --> L[Health Endpoint]
+    M[Terraform] --> N[AWS Infrastructure]
+    N --> F
+    N --> G
+```
 ## 4. Project Structure
 
 ```text
