@@ -3,7 +3,7 @@
 variable "aws_region" {
   description = "AWS region for deployment"
   type        = string
-  default     = "ap-south-1"
+  default     = "ap-southeast-2"
 }
 
 # VPC network range

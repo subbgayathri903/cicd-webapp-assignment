@@ -9,7 +9,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 6.0"
+      version = ">= 6.23.0, < 7.0"
     }
   }
 }
@@ -198,6 +198,7 @@ resource "aws_instance" "webapp" {
     #!/bin/bash
     dnf update -y
     dnf install -y docker
+    dnf install -y docker-compose-plugin
     systemctl enable docker
     systemctl start docker
     usermod -aG docker ec2-user
@@ -220,4 +221,94 @@ resource "aws_instance" "webapp" {
   depends_on = [
     aws_route_table_association.public
   ]
+}
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+}
+
+resource "aws_iam_role" "github_actions" {
+  name = "cicd-webapp-github-actions-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+
+        Action = "sts:AssumeRoleWithWebIdentity"
+
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+
+            "token.actions.githubusercontent.com:sub" = "repo:subbgayathri903@360585437/cicd-webapp-assignment@1469868876:ref:refs/heads/main"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "cicd-webapp-github-actions-role"
+  }
+}
+resource "aws_iam_role_policy" "github_actions_deploy" {
+  name = "cicd-webapp-github-actions-deploy"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Sid    = "ECRAuthentication"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "PushToSpecificECRRepository"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:CompleteLayerUpload",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart"
+        ]
+        Resource = aws_ecr_repository.webapp.arn
+      },
+      {
+        Sid    = "DeployToSpecificEC2Instance"
+        Effect = "Allow"
+        Action = [
+          "ssm:SendCommand"
+        ]
+        Resource = [
+          aws_instance.webapp.arn,
+          "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"
+        ]
+      },
+      {
+        Sid    = "CheckDeploymentStatus"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetCommandInvocation",
+          "ssm:ListCommandInvocations"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
