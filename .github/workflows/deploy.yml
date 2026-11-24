@@ -216,3 +216,28 @@ jobs:
 
           echo "Application health check failed"
           exit 1
+
+  notify:
+    name: Send Slack Notification
+    needs: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send deployment success notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          MESSAGE="Deployment successful!
+          Repository: ${GITHUB_REPOSITORY}
+          Branch: ${GITHUB_REF_NAME}
+          Commit: ${GITHUB_SHA}
+          Application: http://13.236.85.230/
+          Health Check: Passed"
+
+          PAYLOAD=$(jq -n --arg text "$MESSAGE" '{text: $text}')
+
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL"
