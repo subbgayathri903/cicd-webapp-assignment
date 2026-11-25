@@ -10,7 +10,7 @@ app = Flask(__name__)
 def home():
     return jsonify({
         "application": "CI/CD Web Application",
-        "message": "Welcome to my DevOps Assignment!",
+        "message": "Welcome to my home page!",
         "status": "running"
     }), 200
 
